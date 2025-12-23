@@ -1,0 +1,56 @@
+# Web框架
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+
+# 数据库
+sqlalchemy==2.0.31
+psycopg2-binary==2.9.9
+pgvector==0.2.0
+
+# 数据验证和配置管理
+pydantic==2.7.4
+pydantic-settings==2.2.1
+
+# 文档处理
+PyPDF2==3.0.1
+python-docx==1.1.0
+
+# LLM相关
+langchain==0.1.20
+langchain-community==0.0.38
+langchain-core==0.1.52
+langchain-text-splitters==0.0.1
+langchain-openai==0.0.8
+openai==1.10.0
+
+# 向量模型（本地运行需要）
+transformers==4.44.0
+torch==2.4.1
+sentence-transformers==5.2.0
+
+# 语音处理
+speechrecognition==3.10.4
+gtts==2.5.1
+
+# 爬虫
+beautifulsoup4==4.12.3
+requests==2.32.3
+
+# CORS中间件
+
+# 安全相关
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+slowapi==0.1.9
+redis==5.0.8
+celery==5.3.6
+django-celery-beat==2.5.0
+stripe==10.8.0
+azure-cognitiveservices-speech==1.37.0
+
+# 其他
+python-multipart==0.0.9
+python-dotenv==1.0.1
+numpy==1.26.4
+scikit-learn==1.8.0
+scipy==1.16.3

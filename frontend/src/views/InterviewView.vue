@@ -1,0 +1,359 @@
+<template>
+  <div class="interview-container">
+    <h2>AI 模拟面试 - {{ sceneLabel }}</h2>
+
+    <!-- 面试进度条 -->
+    <div class="progress-section">
+      <div class="progress-info">
+        <span>第 {{ currentQuestion }} 题 / 共 {{ totalQuestions }} 题</span>
+        <span class="progress-percentage">{{ progress }}%</span>
+      </div>
+      <el-progress :percentage="progress" :stroke-width="8" :color="progressColor" />
+    </div>
+
+    <div class="chat-box">
+      <ChatMessage
+        v-for="(msg, index) in messages"
+        :key="index"
+        :content="msg.content"
+        :is-ai="msg.isAi"
+      />
+      <div v-if="loading" class="thinking">AI 正在思考...</div>
+    </div>
+
+    <div class="input-area">
+      <el-input
+        v-model="userInput"
+        placeholder="请输入你的回答..."
+        @keyup.enter="handleSubmit"
+        :disabled="loading"
+        clearable
+      />
+      <el-button
+        type="primary"
+        @click="handleSubmit"
+        :disabled="!userInput.trim() || loading"
+        style="margin-left: 10px"
+      >
+        发送
+      </el-button>
+    </div>
+
+    <div class="action-buttons">
+      <el-button @click="confirmEndInterview" type="danger" :disabled="loading">
+        结束面试
+      </el-button>
+      <el-button @click="restartInterview" type="warning" :disabled="loading">
+        重新开始
+      </el-button>
+      <el-button @click="goToReport" type="success" :disabled="!messages.length">
+        查看成长报告
+      </el-button>
+    </div>
+
+    <!-- 结束面试确认对话框 -->
+    <el-dialog
+      v-model="showEndDialog"
+      title="确认结束面试"
+      width="30%"
+    >
+      <span>确定要结束当前面试吗？</span>
+      <template #footer>
+        <el-button @click="showEndDialog = false">取消</el-button>
+        <el-button type="primary" @click="endInterview">确认结束</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 草稿加载对话框 -->
+    <el-dialog
+      v-model="showDraftDialog"
+      title="恢复面试草稿"
+      width="30%"
+    >
+      <div class="draft-info">
+        <p>检测到您有未完成的面试草稿，是否恢复？</p>
+        <p class="draft-hint">恢复后将继续上次的面试，否则将开始新的面试。</p>
+      </div>
+      <template #footer>
+        <el-button @click="removeDraft">删除草稿</el-button>
+        <el-button type="primary" @click="loadInterviewDraft">恢复草稿</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, watch, nextTick, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/userStore'
+import { useInterview } from '@/composables/useInterview'
+import ChatMessage from '@/components/ChatMessage.vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+
+const router = useRouter()
+const userStore = useUserStore()
+const { messages, loading, startInterview, sendAnswer, endInterview: endInterviewApi, clearMessages, saveDraft, loadDraft, deleteDraft } = useInterview()
+const userInput = ref('')
+const showEndDialog = ref(false)
+const showDraftDialog = ref(false)
+const draftLoaded = ref(false)
+
+// 面试进度相关
+const currentQuestion = ref(1)
+const totalQuestions = ref(10) // 默认设置为10题，可根据实际情况调整
+const progress = computed(() => {
+  // 每两条消息算一个问题（AI问+用户答）
+  const questionCount = Math.ceil(messages.value.length / 2)
+  return Math.min(Math.round((questionCount / totalQuestions.value) * 100), 100)
+})
+const progressColor = computed(() => {
+  if (progress.value < 30) return '#f56c6c'
+  if (progress.value < 70) return '#e6a23c'
+  return '#67c23a'
+})
+
+// 场景标签映射
+const sceneLabel = {
+  it: 'IT 技术面试',
+  language: '小语种口语',
+  cert: '职业考证'
+}[userStore.sceneType]
+
+// 自动滚动到聊天底部
+const scrollToBottom = async () => {
+  await nextTick()
+  const chatBox = document.querySelector('.chat-box') as HTMLElement
+  if (chatBox) {
+    chatBox.scrollTop = chatBox.scrollHeight
+  }
+}
+
+// 监听消息变化，自动滚动到底部
+watch(messages, (newMessages) => {
+  scrollToBottom()
+  
+  // 自动保存草稿
+  if (newMessages.length > 0) {
+    saveDraft()
+  }
+}, { deep: true })
+
+// 提交回答
+const handleSubmit = () => {
+  if (!userStore.currentKbId) {
+    ElMessage.error('请先上传资料！')
+    router.push('/upload')
+    return
+  }
+  
+  if (!userInput.value.trim()) return
+  
+  sendAnswer(userInput.value, userStore.currentKbId, userStore.sceneType)
+  userInput.value = ''
+}
+
+// 加载草稿
+const loadInterviewDraft = async () => {
+  try {
+    const success = loadDraft()
+    if (success) {
+      draftLoaded.value = true
+      ElMessage.success('草稿加载成功')
+      showDraftDialog.value = false
+    } else {
+      ElMessage.error('草稿加载失败')
+    }
+  } catch (error) {
+    console.error('加载草稿失败:', error)
+    ElMessage.error('草稿加载失败')
+  }
+}
+
+// 删除草稿
+const removeDraft = async () => {
+  try {
+    await ElMessageBox.confirm('确定要删除草稿吗？', '警告', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    const success = deleteDraft()
+    if (success) {
+      ElMessage.success('草稿已删除')
+      showDraftDialog.value = false
+    } else {
+      ElMessage.error('草稿删除失败')
+    }
+  } catch (error) {
+    // 用户取消操作
+    if (error !== 'cancel') {
+      console.error('删除草稿失败:', error)
+      ElMessage.error('草稿删除失败')
+    }
+  }
+}
+
+// 检查草稿
+const checkDraft = () => {
+  try {
+    const draft = localStorage.getItem('interviewDraft')
+    if (draft) {
+      showDraftDialog.value = true
+    }
+  } catch (error) {
+    console.error('检查草稿失败:', error)
+  }
+}
+
+// 结束面试
+const confirmEndInterview = () => {
+  showEndDialog.value = true
+}
+
+const endInterview = async () => {
+  showEndDialog.value = false
+  await endInterviewApi()
+  goToReport()
+}
+
+// 重新开始面试
+const restartInterview = () => {
+  clearMessages()
+  if (userStore.currentKbId) {
+    startInterview(userStore.currentKbId, userStore.sceneType)
+  }
+}
+
+// 跳转到报告页面
+const goToReport = () => {
+  router.push('/report')
+}
+
+// 组件挂载时开始面试
+onMounted(() => {
+  if (userStore.currentKbId) {
+    // 检查是否有草稿
+    checkDraft()
+    
+    if (!draftLoaded.value) {
+      startInterview(userStore.currentKbId, userStore.sceneType)
+    }
+  } else {
+    ElMessage.error('请先上传资料！')
+    router.push('/upload')
+  }
+})
+</script>
+
+<style scoped>
+.interview-container {
+  max-width: 800px;
+  margin: 20px auto;
+  padding: 0 20px;
+}
+
+.chat-box {
+  height: 500px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+}
+
+.thinking {
+  color: #999;
+  font-style: italic;
+  padding: 8px 0;
+  align-self: flex-start;
+}
+
+.input-area {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.progress-section {
+  margin: 20px 0;
+  background: #fafafa;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #666;
+}
+
+.progress-percentage {
+  font-weight: bold;
+  color: #1890ff;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .interview-container {
+    padding: 0 10px;
+    margin: 10px auto;
+    max-width: 100%;
+  }
+
+  .chat-box {
+    height: 400px;
+    margin-bottom: 10px;
+  }
+
+  .input-area {
+    flex-direction: column;
+    margin-bottom: 10px;
+  }
+
+  .input-area .el-button {
+    margin-left: 0;
+    margin-top: 10px;
+    width: 100%;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-buttons .el-button {
+    width: 100%;
+  }
+
+  .progress-section {
+    padding: 12px;
+  }
+
+  .progress-info {
+    font-size: 12px;
+  }
+
+  .draft-info {
+    font-size: 14px;
+  }
+
+  .draft-hint {
+    color: #666;
+    font-size: 12px;
+    margin-top: 10px;
+  }
+}
+</style>
