@@ -1,8 +1,8 @@
 from typing import List, Dict, Any, Optional
-from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import BaseOutputParser
 from config import LLM_CONFIG
+from .openai_client import create_llm
 import json
 import re
 import os
@@ -124,25 +124,37 @@ class EnhancedInterviewerAgent:
         
         # 检查配置的provider是否有有效的API密钥
         if provider == "qwen" and LLM_CONFIG["qwen_api_key"]:
-            return ChatOpenAI(openai_api_key=LLM_CONFIG["qwen_api_key"],
-                            openai_api_base=LLM_CONFIG["qwen_api_base"],
-                            model=LLM_CONFIG["qwen_model"],
-                            temperature=0.7)
+            return create_llm(
+                provider="qwen",
+                api_key=LLM_CONFIG["qwen_api_key"],
+                api_base=LLM_CONFIG["qwen_api_base"],
+                model=LLM_CONFIG["qwen_model"],
+                temperature=0.7
+            )
         elif provider == "deepseek" and LLM_CONFIG["deepseek_api_key"]:
-            return ChatOpenAI(openai_api_key=LLM_CONFIG["deepseek_api_key"],
-                            openai_api_base=LLM_CONFIG["deepseek_api_base"],
-                            model=LLM_CONFIG["deepseek_model"],
-                            temperature=0.7)
+            return create_llm(
+                provider="deepseek",
+                api_key=LLM_CONFIG["deepseek_api_key"],
+                api_base=LLM_CONFIG["deepseek_api_base"],
+                model=LLM_CONFIG["deepseek_model"],
+                temperature=0.7
+            )
         elif provider == "zhipu" and LLM_CONFIG["zhipu_api_key"]:
-            return ChatOpenAI(openai_api_key=LLM_CONFIG["zhipu_api_key"],
-                            openai_api_base=LLM_CONFIG["zhipu_api_base"],
-                            model=LLM_CONFIG["zhipu_model"],
-                            temperature=0.7)
+            return create_llm(
+                provider="zhipu",
+                api_key=LLM_CONFIG["zhipu_api_key"],
+                api_base=LLM_CONFIG["zhipu_api_base"],
+                model=LLM_CONFIG["zhipu_model"],
+                temperature=0.7
+            )
         elif provider == "openai" and LLM_CONFIG["openai_api_key"]:
-            return ChatOpenAI(openai_api_key=LLM_CONFIG["openai_api_key"],
-                            openai_api_base=LLM_CONFIG["openai_api_base"],
-                            model=LLM_CONFIG["openai_model"],
-                            temperature=0.7)
+            return create_llm(
+                provider="openai",
+                api_key=LLM_CONFIG["openai_api_key"],
+                api_base=LLM_CONFIG["openai_api_base"],
+                model=LLM_CONFIG["openai_model"],
+                temperature=0.7
+            )
         
         # 如果配置的provider没有有效密钥，尝试其他可用的provider
         print(f"警告: {provider} API密钥未配置，尝试使用其他可用模型")
@@ -150,42 +162,57 @@ class EnhancedInterviewerAgent:
         # 按优先级尝试其他模型
         if LLM_CONFIG["qwen_api_key"]:
             print("使用通义千问模型作为备选")
-            return ChatOpenAI(openai_api_key=LLM_CONFIG["qwen_api_key"],
-                            openai_api_base=LLM_CONFIG["qwen_api_base"],
-                            model=LLM_CONFIG["qwen_model"],
-                            temperature=0.7)
+            return create_llm(
+                provider="qwen",
+                api_key=LLM_CONFIG["qwen_api_key"],
+                api_base=LLM_CONFIG["qwen_api_base"],
+                model=LLM_CONFIG["qwen_model"],
+                temperature=0.7
+            )
         elif LLM_CONFIG["deepseek_api_key"]:
             print("使用深度求索模型作为备选")
-            return ChatOpenAI(openai_api_key=LLM_CONFIG["deepseek_api_key"],
-                            openai_api_base=LLM_CONFIG["deepseek_api_base"],
-                            model=LLM_CONFIG["deepseek_model"],
-                            temperature=0.7)
+            return create_llm(
+                provider="deepseek",
+                api_key=LLM_CONFIG["deepseek_api_key"],
+                api_base=LLM_CONFIG["deepseek_api_base"],
+                model=LLM_CONFIG["deepseek_model"],
+                temperature=0.7
+            )
         elif LLM_CONFIG["zhipu_api_key"]:
             print("使用智谱AI模型作为备选")
-            return ChatOpenAI(openai_api_key=LLM_CONFIG["zhipu_api_key"],
-                            openai_api_base=LLM_CONFIG["zhipu_api_base"],
-                            model=LLM_CONFIG["zhipu_model"],
-                            temperature=0.7)
+            return create_llm(
+                provider="zhipu",
+                api_key=LLM_CONFIG["zhipu_api_key"],
+                api_base=LLM_CONFIG["zhipu_api_base"],
+                model=LLM_CONFIG["zhipu_model"],
+                temperature=0.7
+            )
         elif LLM_CONFIG["openai_api_key"]:
             print("使用OpenAI模型作为备选")
-            return ChatOpenAI(openai_api_key=LLM_CONFIG["openai_api_key"],
-                            openai_api_base=LLM_CONFIG["openai_api_base"],
-                            model=LLM_CONFIG["openai_model"],
-                            temperature=0.7)
+            return create_llm(
+                provider="openai",
+                api_key=LLM_CONFIG["openai_api_key"],
+                api_base=LLM_CONFIG["openai_api_base"],
+                model=LLM_CONFIG["openai_model"],
+                temperature=0.7
+            )
         
         # 如果所有模型都不可用，返回一个模拟的LLM实例，让应用能够启动但禁用相关功能
         print("警告: 所有大模型API密钥均未配置，增强面试功能将被禁用，但应用可以正常启动")
         
-        # 创建一个模拟的ChatOpenAI实例，避免应用崩溃
+        # 创建一个模拟的OpenAIClient实例，避免应用崩溃
         class MockLLM:
             def __init__(self):
                 self.temperature = 0.7
                 
             def invoke(self, *args, **kwargs):
-                return {
-                    'content': '由于未配置有效的大模型API密钥，AI功能暂时不可用。请配置有效的API密钥后重试。',
-                    'status': 'mock_response'
-                }
+                class MockResponse:
+                    def __init__(self, content):
+                        self.content = content
+                return MockResponse('由于未配置有效的大模型API密钥，AI功能暂时不可用。请配置有效的API密钥后重试。')
+            
+            def predict(self, *args, **kwargs):
+                return '由于未配置有效的大模型API密钥，AI功能暂时不可用。请配置有效的API密钥后重试。'
         
         return MockLLM()
     

@@ -103,8 +103,10 @@ import {
 } from "@element-plus/icons-vue";
 import { useUserStore } from "@/stores/userStore";
 import apiClient from "@/utils/axios";
+import { useRouter } from "vue-router";
 
 const userStore = useUserStore();
+const router = useRouter();
 const selectedFile = ref<File | null>(null);
 const uploading = ref(false);
 const uploadResult = ref<{ kb_id: number } | null>(null);
@@ -190,7 +192,13 @@ const startCountdown = () => {
 
 // 跳转到面试页面
 const redirectToInterview = () => {
-  window.location.href = '/interview';
+  console.log("跳转到面试页面");
+  try {
+    router.push('/interview');
+  } catch (error) {
+    console.error("使用router跳转失败，尝试window.location:", error);
+    window.location.href = '/interview';
+  }
 };
 
 // 取消自动跳转
@@ -218,9 +226,8 @@ const uploadFile = async () => {
   uploading.value = true;
   uploadProgress.value = 0;
   try {
-    // 使用直接的URL而不是代理，避免网络错误
-    const { default: axios } = await import('axios');
-    const res = await axios.post("http://localhost:8000/api/upload", formData, {
+    // 使用apiClient而不是直接axios
+    const res = await apiClient.post("/api/upload", formData, {
       headers: { "Content-Type": "multipart/form-data" },
       timeout: 60000, // 60秒超时
       onUploadProgress: (progressEvent) => {
@@ -233,16 +240,23 @@ const uploadFile = async () => {
     console.log("上传响应:", res.data);
     console.log("kb_id:", res.data.kb_id);
     
-    if (res.data.kb_id) {
-      userStore.setKbId(res.data.kb_id);
+    // 修复：使用可选链和更严格的条件检查
+    if (res.data?.success && res.data?.kb_id) {
+      const kbId = res.data.kb_id;
+      userStore.setKbId(kbId);
+      console.log(`设置kb_id成功: ${kbId}`);
+      console.log(`userStore.currentKbId: ${userStore.currentKbId}`);
+      
+      // 重置倒计时和自动跳转
+      countdown.value = 5;
+      autoRedirect.value = true;
       
       // 启动自动跳转倒计时
-      if (autoRedirect.value) {
-        console.log("开始倒计时");
-        startCountdown();
-      }
+      console.log("准备启动倒计时，autoRedirect:", autoRedirect.value);
+      startCountdown();
     } else {
-      console.error("响应中缺少 kb_id:", res.data);
+      console.error("响应格式不正确或缺少必要字段:", res.data);
+      errorMessage.value = "上传响应格式不正确，缺少知识库ID";
     }
   } catch (error: any) {
     console.error("上传失败:", error);

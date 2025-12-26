@@ -217,8 +217,15 @@ class VectorStore:
             for chunk in chunks:
                 # 处理不同数据库的embedding存储格式
                 if use_pgvector:
-                    # PostgreSQL + pgvector: embedding是Vector类型
-                    chunk_embedding = chunk.embedding.tolist()
+                    # PostgreSQL + pgvector: embedding可能是Vector类型或memoryview对象
+                    embedding = chunk.embedding
+                    if hasattr(embedding, 'tolist'):
+                        chunk_embedding = embedding.tolist()
+                    elif hasattr(embedding, 'tobytes'):  # 处理memoryview对象
+                        import numpy as np
+                        chunk_embedding = np.frombuffer(embedding.tobytes(), dtype=np.float32).tolist()
+                    else:
+                        chunk_embedding = list(embedding)
                 else:
                     # SQLite: embedding是JSON类型
                     chunk_embedding = chunk.embedding
@@ -273,8 +280,17 @@ class VectorStore:
             for chunk in all_chunks:
                 # 处理不同数据库的embedding存储格式
                 if use_pgvector:
-                    chunk_embedding = chunk.embedding.tolist()
+                    # PostgreSQL + pgvector: embedding可能是Vector类型或memoryview对象
+                    embedding = chunk.embedding
+                    if hasattr(embedding, 'tolist'):
+                        chunk_embedding = embedding.tolist()
+                    elif hasattr(embedding, 'tobytes'):  # 处理memoryview对象
+                        import numpy as np
+                        chunk_embedding = np.frombuffer(embedding.tobytes(), dtype=np.float32).tolist()
+                    else:
+                        chunk_embedding = list(embedding)
                 else:
+                    # SQLite: embedding是JSON类型
                     chunk_embedding = chunk.embedding
                 
                 # 计算向量相似度
@@ -316,11 +332,39 @@ class VectorStore:
         finally:
             db.close()
     
-    def get_chunks_by_kb_id(self, kb_id: int, limit: int = 100) -> List[Chunk]:
+    def get_chunks_by_kb_id(self, kb_id: int, limit: int = 100) -> List[Dict]:
         """根据知识库ID获取文档块"""
         db = self.SessionLocal()
         try:
-            return db.query(Chunk).filter(Chunk.kb_id == kb_id).limit(limit).all()
+            chunks = db.query(Chunk).filter(Chunk.kb_id == kb_id).limit(limit).all()
+            
+            # 转换为字典列表，正确处理embedding
+            result = []
+            for chunk in chunks:
+                chunk_dict = {
+                    'id': chunk.id,
+                    'kb_id': chunk.kb_id,
+                    'document_id': chunk.document_id,
+                    'content': chunk.content,
+                    'chunk_metadata': chunk.chunk_metadata,
+                    'created_at': chunk.created_at
+                }
+                
+                # 正确处理embedding
+                if use_pgvector:
+                    embedding = chunk.embedding
+                    if hasattr(embedding, 'tolist'):
+                        chunk_dict['embedding'] = embedding.tolist()
+                    elif hasattr(embedding, 'tobytes'):  # 处理memoryview对象
+                        chunk_dict['embedding'] = np.frombuffer(embedding.tobytes(), dtype=np.float32).tolist()
+                    else:
+                        chunk_dict['embedding'] = list(embedding)
+                else:
+                    chunk_dict['embedding'] = chunk.embedding
+                    
+                result.append(chunk_dict)
+            
+            return result
         finally:
             db.close()
 

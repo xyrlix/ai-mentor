@@ -1,8 +1,8 @@
 from typing import List, Dict, Any, Optional
-from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import BaseOutputParser
 from config import LLM_CONFIG
+from .openai_client import create_llm
 import json
 import re
 import os
@@ -11,10 +11,6 @@ import os
 proxy_env_vars = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy', 'ALL_PROXY', 'all_proxy', 'REQUESTS_CA_BUNDLE', 'CURL_CA_BUNDLE']
 for var in proxy_env_vars:
     os.environ.pop(var, None)
-
-# 导入openai库直接创建客户端，并手动创建httpx客户端
-import openai
-import httpx
 
 
 class QnAOutputParser(BaseOutputParser):
@@ -100,44 +96,48 @@ class QnAAgent:
         # 检查配置的provider是否有有效的API密钥
         if provider == "qwen" and LLM_CONFIG["qwen_api_key"]:
             try:
-                return ChatOpenAI(
-                    openai_api_key=LLM_CONFIG["qwen_api_key"],
-                    openai_api_base=LLM_CONFIG["qwen_api_base"],
+                return create_llm(
+                    provider="qwen",
+                    api_key=LLM_CONFIG["qwen_api_key"],
+                    api_base=LLM_CONFIG["qwen_api_base"],
                     model=LLM_CONFIG["qwen_model"],
                     temperature=0.3
                 )
             except Exception as e:
-                print(f"ChatOpenAI初始化失败，使用模拟LLM: {e}")
+                print(f"大模型初始化失败，使用模拟LLM: {e}")
         elif provider == "deepseek" and LLM_CONFIG["deepseek_api_key"]:
             try:
-                return ChatOpenAI(
-                    openai_api_key=LLM_CONFIG["deepseek_api_key"],
-                    openai_api_base=LLM_CONFIG["deepseek_api_base"],
+                return create_llm(
+                    provider="deepseek",
+                    api_key=LLM_CONFIG["deepseek_api_key"],
+                    api_base=LLM_CONFIG["deepseek_api_base"],
                     model=LLM_CONFIG["deepseek_model"],
                     temperature=0.3
                 )
             except Exception as e:
-                print(f"ChatOpenAI初始化失败，使用模拟LLM: {e}")
+                print(f"大模型初始化失败，使用模拟LLM: {e}")
         elif provider == "zhipu" and LLM_CONFIG["zhipu_api_key"]:
             try:
-                return ChatOpenAI(
-                    openai_api_key=LLM_CONFIG["zhipu_api_key"],
-                    openai_api_base=LLM_CONFIG["zhipu_api_base"],
+                return create_llm(
+                    provider="zhipu",
+                    api_key=LLM_CONFIG["zhipu_api_key"],
+                    api_base=LLM_CONFIG["zhipu_api_base"],
                     model=LLM_CONFIG["zhipu_model"],
                     temperature=0.3
                 )
             except Exception as e:
-                print(f"ChatOpenAI初始化失败，使用模拟LLM: {e}")
+                print(f"大模型初始化失败，使用模拟LLM: {e}")
         elif provider == "openai" and LLM_CONFIG["openai_api_key"]:
             try:
-                return ChatOpenAI(
-                    openai_api_key=LLM_CONFIG["openai_api_key"],
-                    openai_api_base=LLM_CONFIG["openai_api_base"],
+                return create_llm(
+                    provider="openai",
+                    api_key=LLM_CONFIG["openai_api_key"],
+                    api_base=LLM_CONFIG["openai_api_base"],
                     model=LLM_CONFIG["openai_model"],
                     temperature=0.3
                 )
             except Exception as e:
-                print(f"ChatOpenAI初始化失败，使用模拟LLM: {e}")
+                print(f"大模型初始化失败，使用模拟LLM: {e}")
         
         # 如果配置的provider没有有效密钥，尝试其他可用的provider
         print(f"警告: {provider} API密钥未配置或初始化失败，尝试使用其他可用模型")
@@ -152,9 +152,10 @@ class QnAAgent:
             if api_key:
                 try:
                     print(f"尝试使用{provider_name}模型")
-                    return ChatOpenAI(
-                        openai_api_key=api_key,
-                        openai_api_base=api_base,
+                    return create_llm(
+                        provider=provider_name,
+                        api_key=api_key,
+                        api_base=api_base,
                         model=model_name,
                         temperature=0.3
                     )

@@ -6,20 +6,48 @@ import os
 import hashlib
 from typing import List, Optional
 import numpy as np
-import torch
 from config import settings
 from utils.redis import redis_cache
 
-# 设置国内镜像和环境变量
+# 延迟导入torch以加快启动速度
+_torch_imported = False
+
+def _get_torch():
+    """延迟导入torch"""
+    global _torch_imported
+    if not _torch_imported:
+        import torch
+        globals()['torch'] = torch
+        _torch_imported = True
+        return torch
+    return globals()['torch']
+
+# 设置环境变量以优化速度
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
-os.environ['TRANSFORMERS_CACHE'] = os.path.join(os.getcwd(), '.cache', 'transformers')
-os.environ['SENTENCE_TRANSFORMERS_HOME'] = os.path.join(os.getcwd(), '.cache', 'sentence_transformers')
+# 使用新的 HF_HOME 环境变量（避免警告）
+cache_dir = os.path.join(os.getcwd(), '.cache')
+os.environ['HF_HOME'] = cache_dir
+os.environ['HUGGINGFACE_HUB_CACHE'] = cache_dir
+os.environ['TRANSFORMERS_CACHE'] = os.path.join(cache_dir, 'transformers')
+os.environ['SENTENCE_TRANSFORMERS_HOME'] = os.path.join(cache_dir, 'sentence_transformers')
 
 # 确保缓存目录存在
-os.makedirs(os.environ['TRANSFORMERS_CACHE'], exist_ok=True)
-os.makedirs(os.environ['SENTENCE_TRANSFORMERS_HOME'], exist_ok=True)
+os.makedirs(cache_dir, exist_ok=True)
+os.makedirs(os.path.join(cache_dir, 'transformers'), exist_ok=True)
+os.makedirs(os.path.join(cache_dir, 'sentence_transformers'), exist_ok=True)
 
-from sentence_transformers import SentenceTransformer
+# 完全懒加载 - 只有在真正使用时才导入
+_sentence_transformers_imported = False
+_sentence_transformers_module = None
+
+def _get_sentence_transformers():
+    """获取sentence_transformers模块"""
+    global _sentence_transformers_module, _sentence_transformers_imported
+    if not _sentence_transformers_imported:
+        import sentence_transformers
+        _sentence_transformers_module = sentence_transformers
+        _sentence_transformers_imported = True
+    return _sentence_transformers_module
 
 
 class EmbeddingModel:
@@ -37,6 +65,7 @@ class EmbeddingModel:
         
         # 自动选择设备
         if device == "auto":
+            torch = _get_torch()  # 延迟导入
             if torch.cuda.is_available():
                 self.device = "cuda"
             elif torch.backends.mps.is_available():
@@ -53,9 +82,15 @@ class EmbeddingModel:
     def _load_model(self):
         """延迟加载模型"""
         if not self._model_loaded:
+            sentence_transformers = _get_sentence_transformers()  # 获取模块
             try:
                 print(f"正在加载嵌入模型: {self.model_name}")
-                self._model = SentenceTransformer(self.model_name, device=self.device)
+                
+                # 简化加载参数，避免需要accelerate库
+                self._model = sentence_transformers.SentenceTransformer(
+                    self.model_name, 
+                    device=self.device
+                )
                 self._model_loaded = True
                 print(f"嵌入模型加载成功，设备: {self.device}")
             except Exception as e:
@@ -64,7 +99,8 @@ class EmbeddingModel:
                 try:
                     fallback_model = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
                     print(f"尝试使用备用模型: {fallback_model}")
-                    self._model = SentenceTransformer(fallback_model, device=self.device)
+                    sentence_transformers = _get_sentence_transformers()
+                    self._model = sentence_transformers.SentenceTransformer(fallback_model, device=self.device)
                     self.model_name = fallback_model
                     self.dimension = 384  # MiniLM-L12-v2 的维度
                     self._model_loaded = True

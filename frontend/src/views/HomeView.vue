@@ -5,20 +5,24 @@
     <p>选择你的学习场景：</p>
     
     <div class="scene-grid">
-      <el-card @click="selectScene('it')" class="scene-card">
+      <el-card @click="selectScene('it')" class="scene-card" :class="{ active: userStore.sceneType === 'it' }">
         <h3>💻 IT 技术</h3>
         <p>后端/前端/算法/测试/产品/设计</p>
       </el-card>
       
-      <el-card @click="selectScene('language')" class="scene-card">
+      <el-card @click="selectScene('language')" class="scene-card" :class="{ active: userStore.sceneType === 'language' }">
         <h3>🌍 小语种</h3>
         <p>雅思 / 粤语 / 日语 / 英语口语</p>
       </el-card>
       
-      <el-card @click="selectScene('cert')" class="scene-card">
+      <el-card @click="selectScene('cert')" class="scene-card" :class="{ active: userStore.sceneType === 'cert' }">
         <h3>📜 职业考证</h3>
         <p>软考 / PMP / 会计 / 法律 / 教师资格</p>
       </el-card>
+    </div>
+    
+    <div v-if="userStore.sceneType" class="selected-scene">
+      <p>已选择场景：<strong>{{ getSceneName(userStore.sceneType) }}</strong></p>
     </div>
     
     <div class="action-buttons">
@@ -45,6 +49,15 @@ const selectScene = (scene: SceneType) => {
   userStore.setScene(scene)
   // 保存用户ID到本地存储
   userStore.saveUserId()
+}
+
+const getSceneName = (scene: SceneType): string => {
+  const sceneNames = {
+    'it': 'IT技术面试',
+    'language': '小语种学习', 
+    'cert': '职业考证'
+  }
+  return sceneNames[scene] || scene
 }
 </script>
 
@@ -89,6 +102,13 @@ const selectScene = (scene: SceneType) => {
   border-color: #1890ff;
 }
 
+.scene-card.active {
+  border-color: #1890ff;
+  background-color: #e6f7ff;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
+}
+
 .scene-card h3 {
   font-size: 1.5rem;
   margin-bottom: 0.5rem;
@@ -103,5 +123,19 @@ const selectScene = (scene: SceneType) => {
 
 :deep(.el-card__body) {
   padding: 20px;
+}
+
+.selected-scene {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f0f9ff;
+  border-radius: 8px;
+  border: 1px solid #bae7ff;
+}
+
+.selected-scene p {
+  margin: 0;
+  color: #333;
+  font-size: 1.1rem;
 }
 </style>

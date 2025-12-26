@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # 各模型API配置
     QWEN_API_KEY: Optional[str] = None
-    QWEN_API_BASE: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    QWEN_API_BASE: str = "https://dashscope.aliyuncs.com/api/v1"
     QWEN_MODEL: str = "qwen-max"
 
     DEEPSEEK_API_KEY: Optional[str] = None

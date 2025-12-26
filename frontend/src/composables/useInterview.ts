@@ -1,6 +1,7 @@
 // composables/useInterview.ts
 import { ref } from 'vue'
 import apiClient from '@/utils/axios'
+import { useUserStore } from '@/stores/userStore'
 
 // 定义消息类型
 interface Message {
@@ -11,7 +12,7 @@ interface Message {
 export function useInterview() {
   const messages = ref<Message[]>([])
   const loading = ref(false)
-  const sceneType = ref('it')
+  const userStore = useUserStore()
 
   /**
    * 开始面试
@@ -23,11 +24,20 @@ export function useInterview() {
     loading.value = true
 
     try {
+      // 获取用户ID
+      const userId = userStore.userId
+      console.log('开始面试请求参数:', { kbId, sceneType, userId })
+
       // 发送初始问题请求
       const res = await apiClient.post('/api/interview/start', {
         kb_id: kbId,
-        scene_type: sceneType
+        scene_type: sceneType,
+        user_id: userId
       })
+
+      console.log('开始面试响应:', res)
+      console.log('开始面试响应数据:', res.data)
+      console.log('initial_response:', res.data.initial_response)
 
       // 添加AI的初始问题到消息列表
       messages.value.push({
@@ -36,6 +46,7 @@ export function useInterview() {
       })
     } catch (error) {
       console.error('开始面试失败:', error)
+      console.error('错误详情:', JSON.stringify(error, null, 2))
       messages.value.push({
         content: '抱歉，无法开始面试。请稍后重试。',
         isAi: true
@@ -60,11 +71,16 @@ export function useInterview() {
 
     try {
       // 使用 SSE 流式接收 AI 回复
-      const userId = localStorage.getItem('userId') || `guest_${Date.now()}`
+      const userId = userStore.userId
       const lastQuestion = messages.value[messages.value.length - 2]?.content || ''
 
+      // 限制 lastQuestion 长度以避免 URL 过长
+      const shortLastQuestion = lastQuestion.length > 100
+        ? lastQuestion.substring(0, 100) + "..."
+        : lastQuestion
+
       const eventSource = new EventSource(
-        `http://localhost:8000/api/interview/stream?user_id=${encodeURIComponent(userId)}&kb_id=${kbId}&scene_type=${sceneType}&user_answer=${encodeURIComponent(answer)}&last_question=${encodeURIComponent(lastQuestion)}`
+        `http://localhost:8000/api/interview/stream?user_id=${encodeURIComponent(userId)}&kb_id=${kbId}&scene_type=${sceneType}&user_answer=${encodeURIComponent(answer)}&last_question=${encodeURIComponent(shortLastQuestion)}`
       )
 
       // 添加一个临时的AI消息，用于实时更新
@@ -156,57 +172,7 @@ export function useInterview() {
     messages.value = []
   }
 
-  /**
-   * 保存面试草稿
-   * @returns 是否保存成功
-   */
-  const saveDraft = () => {
-    try {
-      const draft = {
-        messages: messages.value,
-        sceneType: sceneType || 'it',
-        timestamp: Date.now()
-      }
-      localStorage.setItem('interviewDraft', JSON.stringify(draft))
-      return true
-    } catch (error) {
-      console.error('保存草稿失败:', error)
-      return false
-    }
-  }
 
-  /**
-   * 加载面试草稿
-   * @returns 是否加载成功
-   */
-  const loadDraft = () => {
-    try {
-      const draft = localStorage.getItem('interviewDraft')
-      if (draft) {
-        const parsedDraft = JSON.parse(draft)
-        messages.value = parsedDraft.messages || []
-        return true
-      }
-      return false
-    } catch (error) {
-      console.error('加载草稿失败:', error)
-      return false
-    }
-  }
-
-  /**
-   * 删除面试草稿
-   * @returns 是否删除成功
-   */
-  const deleteDraft = () => {
-    try {
-      localStorage.removeItem('interviewDraft')
-      return true
-    } catch (error) {
-      console.error('删除草稿失败:', error)
-      return false
-    }
-  }
 
   return {
     messages,
@@ -214,9 +180,6 @@ export function useInterview() {
     startInterview,
     sendAnswer,
     endInterview,
-    clearMessages,
-    saveDraft,
-    loadDraft,
-    deleteDraft
+    clearMessages
   }
 }

@@ -20,7 +20,7 @@
                 <el-avatar 
                   :size="32" 
                   :src="message.type === 'user' ? userAvatar : botAvatar"
-                  :icon="message.type === 'user' ? User : Robot" />
+                  :icon="message.type === 'user' ? User : Avatar" />
               </div>
               <div class="message-content">
                 <div class="message-text">{{ message.content }}</div>
@@ -109,7 +109,7 @@
         <el-card class="related-questions-card" v-if="relatedQuestions.length > 0">
           <template #header>
             <div class="card-header">
-              <el-icon><Question /></el-icon>
+              <el-icon><HelpFilled /></el-icon>
               <span>相关问题</span>
             </div>
           </template>
@@ -165,9 +165,9 @@
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { 
   User, 
-  Robot, 
+  Avatar, 
   Document, 
-  Question, 
+  HelpFilled, 
   ChatDotRound, 
   DataAnalysis, 
   Loading 
@@ -307,7 +307,7 @@ const loadConversationHistory = async () => {
     const response = await apiClient.get(`/api/qna/conversation-history/${userStore.userId}/${userStore.kbId}`)
     if (response.data.history) {
       // 解析历史对话（简化实现）
-      const lines = response.data.history.split('\n').filter(line => line.trim())
+      const lines = response.data.history.split('\n').filter((line: string) => line.trim())
       for (let i = 0; i < lines.length; i += 2) {
         if (lines[i].startsWith('用户:')) {
           conversationHistory.value.push({

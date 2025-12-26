@@ -18,14 +18,22 @@ class DocumentProcessor:
     """文档处理器"""
     
     def __init__(self):
-        # 临时使用Mock模型避免网络问题，可以改为 get_embedding_model() 使用真实模型
-        self.embedding_model = get_embedding_model(use_mock=True)
+        # 延迟初始化 embedding 模型以加快启动速度
+        self._embedding_model = None
         self.vector_store = get_vector_store()
+        # 初始化文本分割器
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=200,
             length_function=len,
         )
+    
+    @property
+    def embedding_model(self):
+        """延迟加载 embedding 模型"""
+        if self._embedding_model is None:
+            self._embedding_model = get_embedding_model()
+        return self._embedding_model
     
     def process_document(self, file_path: str, kb_id: int, file_type: str) -> Dict[str, Any]:
         """处理文档并添加到知识库

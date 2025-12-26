@@ -2,6 +2,8 @@ import os
 import shutil
 import uuid
 import time
+import logging
+from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Request
 from fastapi.responses import JSONResponse
@@ -11,6 +13,9 @@ from services.document_processor import get_document_processor
 from rag.vector_store import get_vector_store, User
 from schemas.upload import UploadResponse, BatchUploadResponse
 from utils.redis import redis_cache
+
+# 配置上传路由的日志
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["文件上传"])
 
@@ -44,7 +49,7 @@ async def create_default_user(user_id: str) -> int:
             db.commit()
             db.refresh(new_user)
             
-            print(f"创建新用户: ID={new_user.id}, email={email}")
+            logger.info(f"创建新用户: ID={new_user.id}, email={email}")
             return new_user.id
             
         finally:
@@ -135,9 +140,12 @@ async def upload_document(
 ):
     """上传单个文档"""
     try:
+        logger.info(f"收到上传请求: user_id={user_id}, kb_id={kb_id}, filename={file.filename}")
+        
         # 1. 检查文件大小
         content = await file.read()
         file_size = len(content)
+        logger.info(f"文件大小: {file_size} bytes")
         
         if file_size > settings.MAX_FILE_SIZE:
             raise HTTPException(
@@ -166,6 +174,7 @@ async def upload_document(
             kb_name = os.path.splitext(filename)[0]
             user_id_int = int(user_id) if user_id.isdigit() else await create_default_user(user_id)
             kb_id = await create_knowledge_base(user_id_int, kb_name, "it", "backend")
+            logger.info(f"创建新知识库: kb_id={kb_id}, name={kb_name}")
         else:
             # 验证提供的kb_id是否存在
             vector_store = get_vector_store()
@@ -173,17 +182,20 @@ async def upload_document(
             if not kb:
                 raise HTTPException(status_code=404, detail="知识库不存在")
             user_id_int = int(user_id) if user_id.isdigit() else await create_default_user(user_id)
+            logger.info(f"使用现有知识库: kb_id={kb_id}")
         
         # 5. 生成任务ID
         task_id = str(uuid.uuid4())
+        logger.info(f"生成任务ID: {task_id}")
         
         # 6. 异步处理文档
         background_tasks.add_task(
             process_document_task, 
             task_id, file_path, kb_id, file_type
         )
+        logger.info("开始异步处理文档")
         
-        return UploadResponse(
+        response_data = UploadResponse(
             success=True,
             task_id=task_id,
             message="文档上传成功，正在处理中",
@@ -191,6 +203,8 @@ async def upload_document(
             file_type=file_type,
             kb_id=kb_id
         )
+        logger.info(f"上传响应: {response_data.dict()}")
+        return response_data
         
     except HTTPException:
         raise

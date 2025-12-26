@@ -1,11 +1,15 @@
 from fastapi import APIRouter, HTTPException, Query, Form
 from typing import List, Dict, Any, Optional
 import asyncio
+import logging
 
 # 导入相关模块
 from rag.vector_store import get_vector_store
 from agent.qna_agent import get_qna_agent
 from utils.redis import redis_cache
+
+# 配置日志
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/qna", tags=["智能问答"])
 
@@ -166,12 +170,19 @@ async def clear_conversation_history(
 async def get_knowledge_base_info(kb_id: int) -> Dict[str, Any]:
     """获取知识库信息"""
     try:
+        logger.info(f"开始获取知识库信息，知识库ID: {kb_id}")
+        
         kb = vector_store.get_knowledge_base_by_id(kb_id)
         if not kb:
+            logger.warning(f"知识库不存在，知识库ID: {kb_id}")
             raise HTTPException(status_code=404, detail="知识库不存在")
         
         # 获取知识库中的文档块数量
+        logger.info(f"获取知识库文档块，知识库ID: {kb_id}")
         chunks = vector_store.get_chunks_by_kb_id(kb_id, limit=1000)
+        
+        document_count = len(set([chunk.get('document_id') for chunk in chunks if chunk.get('document_id')]))
+        logger.info(f"成功获取知识库信息，知识库ID: {kb_id}, 文档块数量: {len(chunks)}, 文档数量: {document_count}")
         
         return {
             "status": "success",
@@ -183,10 +194,11 @@ async def get_knowledge_base_info(kb_id: int) -> Dict[str, Any]:
                 "created_at": kb.created_at.isoformat() if kb.created_at else None
             },
             "chunk_count": len(chunks),
-            "document_count": len(set([chunk.document_id for chunk in chunks if chunk.document_id]))
+            "document_count": document_count
         }
         
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"获取知识库信息失败，知识库ID: {kb_id}, 错误: {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取知识库信息失败: {str(e)}")

@@ -20,8 +20,6 @@ langchain==0.1.20
 langchain-community==0.0.38
 langchain-core==0.1.52
 langchain-text-splitters==0.0.1
-langchain-openai==0.0.8
-openai==1.10.0
 
 # 向量模型（本地运行需要）
 transformers==4.44.0
@@ -44,13 +42,10 @@ passlib[bcrypt]==1.7.4
 slowapi==0.1.9
 redis==5.0.8
 celery==5.3.6
-django-celery-beat==2.5.0
 stripe==10.8.0
-azure-cognitiveservices-speech==1.37.0
 
 # 其他
 python-multipart==0.0.9
 python-dotenv==1.0.1
 numpy==1.26.4
 scikit-learn==1.8.0
-scipy==1.16.3

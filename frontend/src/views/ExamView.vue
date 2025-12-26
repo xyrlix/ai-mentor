@@ -65,14 +65,14 @@
         <!-- 试题导航 -->
         <div class="question-nav">
           <div 
-            v-for="(question, index) in currentExamInfo?.questions" 
+            v-for="(_, index) in currentExamInfo?.questions" 
             :key="index"
             :class="['nav-item', { 
               'current': currentQuestionIndex === index,
-              'answered': userAnswers[index + 1]
+              'answered': userAnswers[Number(index) + 1]
             }]"
-            @click="goToQuestion(index)">
-            {{ index + 1 }}
+            @click="goToQuestion(Number(index))">
+            {{ Number(index) + 1 }}
           </div>
         </div>
 
@@ -93,9 +93,9 @@
             <div 
               v-for="(option, optIndex) in currentQuestion.options" 
               :key="optIndex"
-              :class="['option', { 'selected': isOptionSelected(optIndex) }]"
-              @click="selectOption(optIndex)">
-              <span class="option-label">{{ String.fromCharCode(65 + optIndex) }}</span>
+              :class="['option', { 'selected': isOptionSelected(Number(optIndex)) }]"
+              @click="selectOption(Number(optIndex))">
+              <span class="option-label">{{ String.fromCharCode(65 + Number(optIndex)) }}</span>
               <span class="option-text">{{ option }}</span>
             </div>
           </div>
@@ -162,9 +162,9 @@
             <div 
               v-for="(option, optIndex) in currentPracticeQuestion.options" 
               :key="optIndex"
-              :class="['option', { 'selected': practiceAnswer === String.fromCharCode(65 + optIndex) }]"
-              @click="practiceAnswer = String.fromCharCode(65 + optIndex)">
-              <span class="option-label">{{ String.fromCharCode(65 + optIndex) }}</span>
+              :class="['option', { 'selected': practiceAnswer === String.fromCharCode(65 + Number(optIndex)) }]"
+              @click="practiceAnswer = String.fromCharCode(65 + Number(optIndex))">
+              <span class="option-label">{{ String.fromCharCode(65 + Number(optIndex)) }}</span>
               <span class="option-text">{{ option }}</span>
             </div>
           </div>
@@ -333,7 +333,7 @@ const currentPracticeQuestion = computed(() => {
 })
 
 const practiceAccuracy = computed(() => {
-  if (practiceQuestions.value.length === 0) return 0
+  if (practiceQuestions.value.length === 0) return '0'
   return ((practiceCorrectCount.value / practiceQuestions.value.length) * 100).toFixed(1)
 })
 
@@ -363,8 +363,8 @@ const loadExamTypes = async () => {
   }
 }
 
-const selectExamType = (type: string) => {
-  currentExamType.value = type
+const selectExamType = (type: string | number) => {
+  currentExamType.value = String(type)
 }
 
 const selectMode = (mode: 'simulation' | 'practice') => {

@@ -64,21 +64,7 @@
       </template>
     </el-dialog>
 
-    <!-- 草稿加载对话框 -->
-    <el-dialog
-      v-model="showDraftDialog"
-      title="恢复面试草稿"
-      width="30%"
-    >
-      <div class="draft-info">
-        <p>检测到您有未完成的面试草稿，是否恢复？</p>
-        <p class="draft-hint">恢复后将继续上次的面试，否则将开始新的面试。</p>
-      </div>
-      <template #footer>
-        <el-button @click="removeDraft">删除草稿</el-button>
-        <el-button type="primary" @click="loadInterviewDraft">恢复草稿</el-button>
-      </template>
-    </el-dialog>
+
   </div>
 </template>
 
@@ -88,15 +74,13 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 import { useInterview } from '@/composables/useInterview'
 import ChatMessage from '@/components/ChatMessage.vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const userStore = useUserStore()
-const { messages, loading, startInterview, sendAnswer, endInterview: endInterviewApi, clearMessages, saveDraft, loadDraft, deleteDraft } = useInterview()
+const { messages, loading, startInterview, sendAnswer, endInterview: endInterviewApi, clearMessages } = useInterview()
 const userInput = ref('')
 const showEndDialog = ref(false)
-const showDraftDialog = ref(false)
-const draftLoaded = ref(false)
 
 // 面试进度相关
 const currentQuestion = ref(1)
@@ -129,13 +113,8 @@ const scrollToBottom = async () => {
 }
 
 // 监听消息变化，自动滚动到底部
-watch(messages, (newMessages) => {
+watch(messages, (_) => {
   scrollToBottom()
-  
-  // 自动保存草稿
-  if (newMessages.length > 0) {
-    saveDraft()
-  }
 }, { deep: true })
 
 // 提交回答
@@ -152,59 +131,9 @@ const handleSubmit = () => {
   userInput.value = ''
 }
 
-// 加载草稿
-const loadInterviewDraft = async () => {
-  try {
-    const success = loadDraft()
-    if (success) {
-      draftLoaded.value = true
-      ElMessage.success('草稿加载成功')
-      showDraftDialog.value = false
-    } else {
-      ElMessage.error('草稿加载失败')
-    }
-  } catch (error) {
-    console.error('加载草稿失败:', error)
-    ElMessage.error('草稿加载失败')
-  }
-}
 
-// 删除草稿
-const removeDraft = async () => {
-  try {
-    await ElMessageBox.confirm('确定要删除草稿吗？', '警告', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    
-    const success = deleteDraft()
-    if (success) {
-      ElMessage.success('草稿已删除')
-      showDraftDialog.value = false
-    } else {
-      ElMessage.error('草稿删除失败')
-    }
-  } catch (error) {
-    // 用户取消操作
-    if (error !== 'cancel') {
-      console.error('删除草稿失败:', error)
-      ElMessage.error('草稿删除失败')
-    }
-  }
-}
 
-// 检查草稿
-const checkDraft = () => {
-  try {
-    const draft = localStorage.getItem('interviewDraft')
-    if (draft) {
-      showDraftDialog.value = true
-    }
-  } catch (error) {
-    console.error('检查草稿失败:', error)
-  }
-}
+
 
 // 结束面试
 const confirmEndInterview = () => {
@@ -233,12 +162,8 @@ const goToReport = () => {
 // 组件挂载时开始面试
 onMounted(() => {
   if (userStore.currentKbId) {
-    // 检查是否有草稿
-    checkDraft()
-    
-    if (!draftLoaded.value) {
-      startInterview(userStore.currentKbId, userStore.sceneType)
-    }
+    // 直接开始新的对话，不检查草稿
+    startInterview(userStore.currentKbId, userStore.sceneType)
   } else {
     ElMessage.error('请先上传资料！')
     router.push('/upload')

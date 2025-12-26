@@ -1,9 +1,6 @@
 from typing import List, Dict, Any
-from langchain_openai import ChatOpenAI
-from langchain.chains import ConversationChain
-from langchain.memory import ConversationBufferMemory
-from langchain.prompts import ChatPromptTemplate
 from .prompt_templates import interview_prompts, get_prompt_template
+from .openai_client import create_llm
 from config import LLM_CONFIG
 import os
 
@@ -20,11 +17,10 @@ class InterviewerAgent:
     def __init__(self):
         """初始化面试Agent"""
         self.llm = self.init_llm()
-        self.memory = ConversationBufferMemory()
-        self.conversation = ConversationChain(llm=self.llm, memory=self.memory)
         self.current_role = None
         self.current_topic = None
         self.interview_history = []
+        self.current_prompt_template = None
 
     def init_llm(self):
         """初始化大模型，支持多个国产模型提供商"""
@@ -32,25 +28,37 @@ class InterviewerAgent:
 
         # 检查配置的provider是否有有效的API密钥
         if provider == "qwen" and LLM_CONFIG["qwen_api_key"]:
-            return ChatOpenAI(openai_api_key=LLM_CONFIG["qwen_api_key"],
-                              openai_api_base=LLM_CONFIG["qwen_api_base"],
-                              model=LLM_CONFIG["qwen_model"],
-                              temperature=LLM_CONFIG["temperature"])
+            return create_llm(
+                provider="qwen",
+                api_key=LLM_CONFIG["qwen_api_key"],
+                api_base=LLM_CONFIG["qwen_api_base"],
+                model=LLM_CONFIG["qwen_model"],
+                temperature=LLM_CONFIG["temperature"]
+            )
         elif provider == "deepseek" and LLM_CONFIG["deepseek_api_key"]:
-            return ChatOpenAI(openai_api_key=LLM_CONFIG["deepseek_api_key"],
-                              openai_api_base=LLM_CONFIG["deepseek_api_base"],
-                              model=LLM_CONFIG["deepseek_model"],
-                              temperature=LLM_CONFIG["temperature"])
+            return create_llm(
+                provider="deepseek",
+                api_key=LLM_CONFIG["deepseek_api_key"],
+                api_base=LLM_CONFIG["deepseek_api_base"],
+                model=LLM_CONFIG["deepseek_model"],
+                temperature=LLM_CONFIG["temperature"]
+            )
         elif provider == "zhipu" and LLM_CONFIG["zhipu_api_key"]:
-            return ChatOpenAI(openai_api_key=LLM_CONFIG["zhipu_api_key"],
-                              openai_api_base=LLM_CONFIG["zhipu_api_base"],
-                              model=LLM_CONFIG["zhipu_model"],
-                              temperature=LLM_CONFIG["temperature"])
+            return create_llm(
+                provider="zhipu",
+                api_key=LLM_CONFIG["zhipu_api_key"],
+                api_base=LLM_CONFIG["zhipu_api_base"],
+                model=LLM_CONFIG["zhipu_model"],
+                temperature=LLM_CONFIG["temperature"]
+            )
         elif provider == "openai" and LLM_CONFIG["openai_api_key"]:
-            return ChatOpenAI(openai_api_key=LLM_CONFIG["openai_api_key"],
-                              openai_api_base=LLM_CONFIG["openai_api_base"],
-                              model=LLM_CONFIG["openai_model"],
-                              temperature=LLM_CONFIG["temperature"])
+            return create_llm(
+                provider="openai",
+                api_key=LLM_CONFIG["openai_api_key"],
+                api_base=LLM_CONFIG["openai_api_base"],
+                model=LLM_CONFIG["openai_model"],
+                temperature=LLM_CONFIG["temperature"]
+            )
         
         # 如果配置的provider没有有效密钥，尝试其他可用的provider
         print(f"警告: {provider} API密钥未配置，尝试使用其他可用模型")
@@ -58,39 +66,57 @@ class InterviewerAgent:
         # 按优先级尝试其他模型
         if LLM_CONFIG["qwen_api_key"]:
             print("使用通义千问模型作为备选")
-            return ChatOpenAI(openai_api_key=LLM_CONFIG["qwen_api_key"],
-                              openai_api_base=LLM_CONFIG["qwen_api_base"],
-                              model=LLM_CONFIG["qwen_model"],
-                              temperature=LLM_CONFIG["temperature"])
+            return create_llm(
+                provider="qwen",
+                api_key=LLM_CONFIG["qwen_api_key"],
+                api_base=LLM_CONFIG["qwen_api_base"],
+                model=LLM_CONFIG["qwen_model"],
+                temperature=LLM_CONFIG["temperature"]
+            )
         elif LLM_CONFIG["deepseek_api_key"]:
             print("使用深度求索模型作为备选")
-            return ChatOpenAI(openai_api_key=LLM_CONFIG["deepseek_api_key"],
-                              openai_api_base=LLM_CONFIG["deepseek_api_base"],
-                              model=LLM_CONFIG["deepseek_model"],
-                              temperature=LLM_CONFIG["temperature"])
+            return create_llm(
+                provider="deepseek",
+                api_key=LLM_CONFIG["deepseek_api_key"],
+                api_base=LLM_CONFIG["deepseek_api_base"],
+                model=LLM_CONFIG["deepseek_model"],
+                temperature=LLM_CONFIG["temperature"]
+            )
         elif LLM_CONFIG["zhipu_api_key"]:
             print("使用智谱AI模型作为备选")
-            return ChatOpenAI(openai_api_key=LLM_CONFIG["zhipu_api_key"],
-                              openai_api_base=LLM_CONFIG["zhipu_api_base"],
-                              model=LLM_CONFIG["zhipu_model"],
-                              temperature=LLM_CONFIG["temperature"])
+            return create_llm(
+                provider="zhipu",
+                api_key=LLM_CONFIG["zhipu_api_key"],
+                api_base=LLM_CONFIG["zhipu_api_base"],
+                model=LLM_CONFIG["zhipu_model"],
+                temperature=LLM_CONFIG["temperature"]
+            )
         elif LLM_CONFIG["openai_api_key"]:
             print("使用OpenAI模型作为备选")
-            return ChatOpenAI(openai_api_key=LLM_CONFIG["openai_api_key"],
-                              openai_api_base=LLM_CONFIG["openai_api_base"],
-                              model=LLM_CONFIG["openai_model"],
-                              temperature=LLM_CONFIG["temperature"])
+            return create_llm(
+                provider="openai",
+                api_key=LLM_CONFIG["openai_api_key"],
+                api_base=LLM_CONFIG["openai_api_base"],
+                model=LLM_CONFIG["openai_model"],
+                temperature=LLM_CONFIG["temperature"]
+            )
         
         # 如果所有模型都不可用，返回一个模拟的LLM实例，让应用能够启动但禁用相关功能
         print("警告: 所有大模型API密钥均未配置，面试功能将被禁用，但应用可以正常启动")
         
-        # 创建一个模拟的ChatOpenAI实例，避免应用崩溃
+        # 创建一个模拟的LLM实例，避免应用崩溃
         class MockLLM:
             def __init__(self):
                 self.temperature = LLM_CONFIG["temperature"]
                 
             def predict(self, input: str):
                 return "由于未配置有效的大模型API密钥，AI功能暂时不可用。请配置有效的API密钥后重试。"
+            
+            def invoke(self, *args, **kwargs):
+                class MockResponse:
+                    def __init__(self, content):
+                        self.content = content
+                return MockResponse("由于未配置有效的大模型API密钥，AI功能暂时不可用。请配置有效的API密钥后重试。")
         
         return MockLLM()
 
@@ -98,9 +124,8 @@ class InterviewerAgent:
         """设置面试角色（岗位类型）"""
         self.current_role = role
         if role in interview_prompts:
-            # 初始化对话历史，使用对应角色的提示模板
-            self.memory.clear()
-            self.conversation.prompt.template = interview_prompts[role]
+            # 设置对应角色的提示模板
+            self.current_prompt_template = interview_prompts[role]
         else:
             raise ValueError(f"不支持的角色: {role}")
 
@@ -115,7 +140,7 @@ class InterviewerAgent:
         """
         self.current_topic = topic
         initial_prompt = f"请开始一场关于{topic}的面试。首先做个自我介绍，然后提出第一个问题。"
-        response = self.conversation.predict(input=initial_prompt)
+        response = self.llm.invoke(initial_prompt).content
         self.interview_history.append({
             'speaker': 'interviewer',
             'content': response
@@ -137,8 +162,10 @@ class InterviewerAgent:
         })
 
         # 生成下一个问题的提示
-        prompt = f"基于候选人的回答，提出一个相关的、深入的后续问题，保持面试的流畅性。"
-        response = self.conversation.predict(input=prompt)
+        # 构建包含历史对话的完整提示
+        history_text = "\n".join([f"{msg['speaker']}: {msg['content']}" for msg in self.interview_history[-5:]])  # 只取最近5轮对话
+        prompt = f"以下是面试对话历史：\n{history_text}\n\n请基于候选人的回答，提出一个相关的、深入的后续问题，保持面试的流畅性。"
+        response = self.llm.invoke(prompt).content
 
         self.interview_history.append({
             'speaker': 'interviewer',
@@ -212,7 +239,7 @@ class InterviewerAgent:
         请给出每个维度的分数，并提供总体评价和改进建议。
         """
 
-        response = self.conversation.predict(input=eval_prompt)
+        response = self.llm.invoke(eval_prompt).content
         return {
             'user_answer': user_answer,
             'question': question,
@@ -226,7 +253,7 @@ class InterviewerAgent:
             面试官的结束语
         """
         end_prompt = "请结束这场面试，做一个简短的总结，并感谢候选人。"
-        response = self.conversation.predict(input=end_prompt)
+        response = self.llm.invoke(end_prompt).content
         self.interview_history.append({
             'speaker': 'interviewer',
             'content': response
@@ -256,7 +283,7 @@ class InterviewerAgent:
         6. 最终结论
         """
 
-        response = self.conversation.predict(input=feedback_prompt)
+        response = self.llm.invoke(feedback_prompt).content
         return {
             'feedback': response,
             'interview_history': self.interview_history,

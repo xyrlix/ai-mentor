@@ -10,6 +10,9 @@ export const useUserStore = defineStore('user', {
     currentKbId: null as number | null,
     sceneType: 'it' as SceneType
   }),
+  getters: {
+    kbId: (state) => state.currentKbId
+  },
   actions: {
     setKbId(kbId: number) {
       this.currentKbId = kbId
